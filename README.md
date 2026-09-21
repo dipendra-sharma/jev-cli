@@ -127,7 +127,6 @@ Verified live against both providers on 22 September 2026:
 | Context | 64,000 tokens per request, 32,000 for state plus the longest question |
 | Input price | $0.042 per million tokens |
 | Output price | free |
-| Typical latency | 70–500 ms |
 | Real cost, 4-question triage | $0.000022 per ticket |
 
 TypeSafe's own published workflow evaluations claim up to 190 times faster and 440
@@ -189,7 +188,7 @@ short version:
 - **Literal reading.** It answers the question you wrote, not the one you meant. Negations and implied conditions trip it.
 - **Large irrelevant state.** Accuracy falls as unrelated content grows; send only what the decision needs.
 - **Adversarial input.** It does not treat state as hostile by default and can be steered by injected instructions — relevant if you use it as a guard.
-- **32k context**, text only, English strongest.
+- **32k context** for state plus the longest question, text only.
 - **Being right.** Guaranteed schema is not guaranteed truth. Calibration holds in aggregate, not for any single call.
 
 The full table, with what each one means for how you write questions, is in

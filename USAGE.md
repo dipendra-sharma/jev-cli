@@ -200,8 +200,10 @@ falls back to compact JSON for anything else.
 | Input | $0.042 per million tokens |
 | Output | free |
 | Rate limit | 250,000 tokens per second, 1,200 requests per minute |
-| Latency | 70–500 ms typical |
-| Input modality | text only — no image, audio or video |
+| Input modality | text only — a string, JSON object, or array of text values; no image, audio or video |
+
+TypeSafe publishes no latency figure. It is fast enough to sit inline in a request
+path, but measure your own with `--usage` rather than planning against a number.
 
 ### Errors
 
@@ -461,9 +463,15 @@ jev batch --spec examples/fraud-scan.json --input signups.ndjson \
 A line that fails gets `{"line":N,"error":"..."}` and the run continues. The command
 exits 1 at the end if any line failed, so a partial failure is never silent.
 
+Results do not echo the state back. `line` is the 1-based position in the input and
+results come out in input order, so keep the input in a file and join on that number
+when you need the original record — piping the input straight in leaves you with
+numbers you cannot resolve.
+
 The `verdict` on each line is the **worst** verdict across all that line's answers —
 one uncertain question marks the whole record for review. That is deliberate: a gate
-should be conservative.
+should be conservative. It is only present when you set `--gate-low` or `--gate-high`;
+without a gate there is nothing to judge against and the field is omitted.
 
 All states are read into memory before dispatch. Fine for thousands of lines; if you
 have millions, split the file.
@@ -519,11 +527,11 @@ if you want answers to stay stable as TypeSafe ships updates.
 | `--api-key` | the provider's key variable | credentials |
 | `--base-url` | the provider's endpoint | for a proxy or gateway |
 | `--timeout` | `60s` | per-request timeout |
-| `--retries` | `3` | retries on 429, 529 and 5xx |
+| `--retries` | `3` | retries on 408, 429 and 5xx, 529 included |
 | `--json` | off | print the raw JSON response instead of the table |
-| `--usage` | off | print tokens and cost |
+| `--usage` | off | print tokens, and cost when the provider reports one |
 | `--gate-low` | `0` | confidence below this exits 11 |
-| `--gate-high` | `0` | confidence below this but at or above `--gate-low` exits 10 |
+| `--gate-high` | `0` | confidence at or above this exits 0; between the two exits 10 |
 | `--state` | — | inline state (not on `models` or `batch`) |
 | `--state-file` | — | state from a file, or `-` for stdin |
 
@@ -774,7 +782,8 @@ Because questions run in parallel, adding dimensions costs almost nothing in tim
 
 ```bash
 jev batch --spec examples/fraud-scan.json --input signups.ndjson --concurrency 8 \
-  | jq -r 'select(.answers.fraud.noul > 0.85) | .line' > to_ban.txt
+  | jq -r 'select(.answers.fraud.noul > 0.85) | .line' \
+  | awk 'NR==FNR {want[$1]; next} FNR in want' - signups.ndjson > to_ban.ndjson
 ```
 
 Three signups cost $0.000056. Scanning a few hundred a day costs cents.
@@ -797,8 +806,8 @@ cat posts.ndjson | jev batch --spec launch-filter.json \
 
 ### Classify many pages fast
 
-Because output tokens are free and latency is 70–500 ms, work that was never worth
-doing with a general model becomes routine. Feed one page per line and raise
+Because output tokens are free and each call is fast, work that was never worth doing
+with a general model becomes routine. Feed one page per line and raise
 `--concurrency`:
 
 ```bash
