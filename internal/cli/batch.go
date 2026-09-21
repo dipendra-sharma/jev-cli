@@ -111,13 +111,16 @@ func dispatchBatch(ctx context.Context, client *jev.Client, opts *options, quest
 				return
 			}
 			usage := resp.Usage
-			results[i] = batchResult{
+			result := batchResult{
 				Line:    i + 1,
-				Verdict: jev.WorstVerdict(resp.Answers, opts.thresholds()),
 				Model:   resp.Model,
 				Answers: resp.Answers,
 				Usage:   &usage,
 			}
+			if thresholds := opts.thresholds(); thresholds.Enabled() {
+				result.Verdict = jev.WorstVerdict(resp.Answers, thresholds)
+			}
+			results[i] = result
 		})
 	}
 	wg.Wait()
@@ -145,8 +148,12 @@ func writeBatchResults(out io.Writer, results []batchResult, showUsage bool) err
 	}
 
 	if showUsage {
-		fmt.Fprintf(os.Stderr, "%d states · %d failed · in %d tok · out %d tok · $%.6f\n",
-			len(results), failed, totalIn, totalOut, totalCost)
+		fmt.Fprintf(os.Stderr, "%d states · %d failed · in %d tok · out %d tok",
+			len(results), failed, totalIn, totalOut)
+		if totalCost > 0 {
+			fmt.Fprintf(os.Stderr, " · $%.6f", totalCost)
+		}
+		fmt.Fprintln(os.Stderr)
 	}
 	if failed > 0 {
 		return fmt.Errorf("%d of %d states failed", failed, len(results))

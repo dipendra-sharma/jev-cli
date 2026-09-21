@@ -14,8 +14,6 @@ const (
 	MaxChoiceOptions = 255
 	MinScoreLevels   = 2
 	MaxScoreLevels   = 10
-
-	ContextLimit = 32000
 )
 
 type NoulCriteria struct {
@@ -48,7 +46,7 @@ type Answer struct {
 type Usage struct {
 	InputTokens  int     `json:"input_tokens"`
 	OutputTokens int     `json:"output_tokens"`
-	Cost         float64 `json:"cost"`
+	Cost         float64 `json:"cost,omitempty"`
 }
 
 type Response struct {

@@ -12,7 +12,7 @@ import (
 	"github.com/dipendra-sharma/jev-cli/internal/jev"
 )
 
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 const (
 	ExitOK       = 0
@@ -48,11 +48,11 @@ func (o *options) register(fs *flag.FlagSet, withState bool) {
 	fs.StringVar(&o.baseURL, "base-url", "", "override the provider's API base URL")
 	fs.StringVar(&o.apiKey, "api-key", "", "API key (defaults to the provider's key environment variable)")
 	fs.DurationVar(&o.timeout, "timeout", 60*time.Second, "request timeout")
-	fs.IntVar(&o.retries, "retries", 3, "retries on 429, 529 and 5xx responses")
+	fs.IntVar(&o.retries, "retries", 3, "retries on 408, 429 and 5xx responses, 529 included")
 	fs.BoolVar(&o.jsonOut, "json", false, "print the raw JSON response")
 	fs.BoolVar(&o.showUsage, "usage", false, "print token usage and cost")
 	fs.Float64Var(&o.gateLow, "gate-low", 0, "confidence below this exits 11 (reject)")
-	fs.Float64Var(&o.gateHigh, "gate-high", 0, "confidence below this but at or above --gate-low exits 10 (review)")
+	fs.Float64Var(&o.gateHigh, "gate-high", 0, "confidence at or above this exits 0 (accept); between the two exits 10 (review)")
 	if withState {
 		fs.StringVar(&o.state, "state", "", "the content to evaluate, as text or JSON")
 		fs.StringVar(&o.stateFile, "state-file", "", "read state from a file, or - for stdin")
