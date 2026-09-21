@@ -32,8 +32,14 @@ func renderResponse(w io.Writer, resp *jev.Response, thresholds jev.Thresholds, 
 		renderAnswer(w, name, resp.Answers[name], thresholds)
 	}
 	if showUsage {
-		fmt.Fprintf(w, "\n%s  in %d tok · out %d tok · $%.8f · %s\n",
-			resp.Model, resp.Usage.InputTokens, resp.Usage.OutputTokens, resp.Usage.Cost, resp.ID)
+		fmt.Fprintf(w, "\n%s  in %d tok · out %d tok", resp.Model, resp.Usage.InputTokens, resp.Usage.OutputTokens)
+		if resp.Usage.Cost > 0 {
+			fmt.Fprintf(w, " · $%.8f", resp.Usage.Cost)
+		}
+		if resp.ID != "" {
+			fmt.Fprintf(w, " · %s", resp.ID)
+		}
+		fmt.Fprintln(w)
 	}
 }
 
@@ -133,7 +139,30 @@ func renderModels(w io.Writer, models []jev.Model) {
 	}
 	for _, m := range models {
 		fmt.Fprintf(w, "%s\n", m.ID)
-		fmt.Fprintf(w, "  %s · %s · context %d\n", m.Name, m.Architecture.Modality, m.ContextLength)
-		fmt.Fprintf(w, "  input %s/token · output %s/token\n\n", m.Pricing.Prompt, m.Pricing.Completion)
+		if m.Description != "" {
+			fmt.Fprintf(w, "  %s\n", m.Description)
+		}
+		if details := modelDetails(m); details != "" {
+			fmt.Fprintf(w, "  %s\n", details)
+		}
+		fmt.Fprintln(w)
 	}
+}
+
+func modelDetails(m jev.Model) string {
+	var parts []string
+	if m.ContextLength > 0 {
+		parts = append(parts, fmt.Sprintf("context %d", m.ContextLength))
+	}
+	if m.ReleaseDate != "" {
+		day, _, _ := strings.Cut(m.ReleaseDate, "T")
+		parts = append(parts, "released "+day)
+	}
+	if m.InputPrice != "" {
+		parts = append(parts, fmt.Sprintf("input %s/token", m.InputPrice))
+	}
+	if m.OutputPrice != "" {
+		parts = append(parts, fmt.Sprintf("output %s/token", m.OutputPrice))
+	}
+	return strings.Join(parts, " · ")
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/dipendra-sharma/jev-cli/internal/jev"
 )
 
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 const (
 	ExitOK       = 0
@@ -28,6 +28,7 @@ func (e usageError) Error() string { return e.err.Error() }
 func (e usageError) Unwrap() error { return e.err }
 
 type options struct {
+	provider  string
 	model     string
 	baseURL   string
 	apiKey    string
@@ -42,9 +43,10 @@ type options struct {
 }
 
 func (o *options) register(fs *flag.FlagSet, withState bool) {
-	fs.StringVar(&o.model, "model", jev.ModelLatest, "OpenRouter model slug")
-	fs.StringVar(&o.baseURL, "base-url", jev.DefaultBaseURL, "OpenRouter API base URL")
-	fs.StringVar(&o.apiKey, "api-key", "", "API key (defaults to $OPENROUTER_API_KEY)")
+	fs.StringVar(&o.provider, "provider", "", "typesafe or openrouter (defaults to whichever key is set, typesafe first)")
+	fs.StringVar(&o.model, "model", "", "model id (defaults to the provider's latest alias)")
+	fs.StringVar(&o.baseURL, "base-url", "", "override the provider's API base URL")
+	fs.StringVar(&o.apiKey, "api-key", "", "API key (defaults to the provider's key environment variable)")
 	fs.DurationVar(&o.timeout, "timeout", 60*time.Second, "request timeout")
 	fs.IntVar(&o.retries, "retries", 3, "retries on 429, 529 and 5xx responses")
 	fs.BoolVar(&o.jsonOut, "json", false, "print the raw JSON response")
@@ -62,12 +64,13 @@ func (o *options) thresholds() jev.Thresholds {
 }
 
 func (o *options) client() (*jev.Client, error) {
-	key := o.apiKey
-	if key == "" {
-		key = os.Getenv("OPENROUTER_API_KEY")
+	provider, err := jev.SelectProvider(o.provider, os.LookupEnv)
+	if err != nil {
+		return nil, usageError{err}
 	}
-	if key == "" {
-		return nil, usageError{errors.New("no API key: set OPENROUTER_API_KEY or pass --api-key")}
+	key, err := provider.APIKey(o.apiKey, os.LookupEnv)
+	if err != nil {
+		return nil, usageError{err}
 	}
 	if o.retries < 0 {
 		return nil, usageError{fmt.Errorf("--retries cannot be negative")}
@@ -75,7 +78,8 @@ func (o *options) client() (*jev.Client, error) {
 	if err := o.thresholds().Validate(); err != nil {
 		return nil, usageError{err}
 	}
-	return jev.NewClient(o.baseURL, key, o.retries, o.timeout), nil
+	o.model = provider.Model(o.model)
+	return jev.NewClient(provider, o.baseURL, key, o.retries, o.timeout), nil
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -137,7 +141,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 }
 
 func printHelp(w io.Writer) {
-	fmt.Fprint(w, `jev - ask the TypeSafe Jev decision model a typed question, through OpenRouter.
+	fmt.Fprint(w, `jev - ask the TypeSafe Jev decision model a typed question.
 
 Jev does not write text. You give it state plus questions with fixed answers,
 and it returns the chosen answer with a probability for every option.
@@ -151,8 +155,16 @@ COMMANDS
   score    rate the state against an ordered list of levels
   run      send a JSON spec with any number of questions in one request
   batch    run one spec over many states from newline-delimited JSON
-  models   list the decision models OpenRouter currently serves
+  models   list the decision models the provider currently serves
   version  print the version
+
+PROVIDERS
+  typesafe    the official API at api.typesafe.ai, key from $TYPESAFE_API_KEY
+  openrouter  the same model through openrouter.ai, key from $OPENROUTER_API_KEY
+
+  With no --provider, jev uses typesafe when $TYPESAFE_API_KEY is set,
+  otherwise openrouter when $OPENROUTER_API_KEY is set. Model ids differ per
+  provider, so --model is only portable within one.
 
 STATE
   Every question needs state. Supply it with --state, --state-file, or by

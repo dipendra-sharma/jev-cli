@@ -9,16 +9,13 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	DefaultBaseURL       = "https://openrouter.ai/api/v1"
 	decisionPath         = "/systemone"
-	modelsPath           = "/models"
 	maxErrorBodyBytes    = 8 << 10
 	maxErrorMessageChars = 400
 	baseBackoff          = 400 * time.Millisecond
@@ -28,24 +25,26 @@ const (
 )
 
 type Client struct {
-	BaseURL string
-	APIKey  string
-	Retries int
-	HTTP    *http.Client
+	Provider Provider
+	BaseURL  string
+	APIKey   string
+	Retries  int
+	HTTP     *http.Client
 }
 
-func NewClient(baseURL, apiKey string, retries int, timeout time.Duration) *Client {
+func NewClient(provider Provider, baseURL, apiKey string, retries int, timeout time.Duration) *Client {
 	if baseURL == "" {
-		baseURL = DefaultBaseURL
+		baseURL = provider.BaseURL
 	}
 	if timeout <= 0 {
 		timeout = defaultHTTPTimeout
 	}
 	return &Client{
-		BaseURL: baseURL,
-		APIKey:  apiKey,
-		Retries: retries,
-		HTTP:    &http.Client{Timeout: timeout},
+		Provider: provider,
+		BaseURL:  baseURL,
+		APIKey:   apiKey,
+		Retries:  retries,
+		HTTP:     &http.Client{Timeout: timeout},
 	}
 }
 
@@ -77,18 +76,15 @@ func (c *Client) DecideRaw(ctx context.Context, body any) (json.RawMessage, erro
 }
 
 func (c *Client) DecisionModels(ctx context.Context) ([]Model, error) {
-	endpoint := c.BaseURL + modelsPath + "?" + url.Values{"output_modalities": {"decisions"}}.Encode()
-	raw, err := c.get(ctx, endpoint)
+	raw, err := c.get(ctx, c.BaseURL+c.Provider.ModelsPath)
 	if err != nil {
 		return nil, err
 	}
-	var out struct {
-		Data []Model `json:"data"`
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
+	models, err := c.Provider.parseModels(raw)
+	if err != nil {
 		return nil, fmt.Errorf("decoding model list: %w", err)
 	}
-	return out.Data, nil
+	return models, nil
 }
 
 func (c *Client) post(ctx context.Context, path string, payload []byte) (json.RawMessage, error) {
@@ -139,12 +135,13 @@ func (c *Client) attempt(build func() (*http.Request, error)) (json.RawMessage, 
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("calling openrouter: %w", err)
+		return nil, fmt.Errorf("calling %s: %w", c.Provider.Name, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, &APIError{
+			Provider:   c.Provider,
 			StatusCode: resp.StatusCode,
 			RetryAfter: parseRetryAfter(resp.Header),
 			Message:    readErrorMessage(resp),

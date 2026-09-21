@@ -12,6 +12,8 @@ import (
 
 const okBody = `{"model":"typesafe/jev-1.13","answers":{"q":{"type":"noul","noul":0.9}},"usage":{"input_tokens":1,"output_tokens":1}}`
 
+var testProvider = Providers()[0]
+
 func serverFailingThenOK(t *testing.T, status int, failures int32, header map[string]string) (*httptest.Server, *atomic.Int32) {
 	t.Helper()
 	var calls atomic.Int32
@@ -41,7 +43,7 @@ func TestRetriesTransientStatusesUntilSuccess(t *testing.T) {
 	for name, status := range transient {
 		t.Run(name, func(t *testing.T) {
 			server, calls := serverFailingThenOK(t, status, 1, nil)
-			client := NewClient(server.URL, "key", 3, 5*time.Second)
+			client := NewClient(testProvider, server.URL, "key", 3, 5*time.Second)
 
 			resp, err := client.Decide(context.Background(), Request{})
 
@@ -68,7 +70,7 @@ func TestDoesNotRetryClientErrors(t *testing.T) {
 	for name, status := range permanent {
 		t.Run(name, func(t *testing.T) {
 			server, calls := serverFailingThenOK(t, status, 99, nil)
-			client := NewClient(server.URL, "key", 3, 5*time.Second)
+			client := NewClient(testProvider, server.URL, "key", 3, 5*time.Second)
 
 			_, err := client.Decide(context.Background(), Request{})
 
@@ -91,7 +93,7 @@ func TestWaitsForRetryAfterMillisecondsHeader(t *testing.T) {
 
 	server, _ := serverFailingThenOK(t, http.StatusTooManyRequests, 1,
 		map[string]string{"retry-after-ms": "1200"})
-	client := NewClient(server.URL, "key", 2, 5*time.Second)
+	client := NewClient(testProvider, server.URL, "key", 2, 5*time.Second)
 
 	start := time.Now()
 	_, err := client.Decide(context.Background(), Request{})
@@ -109,7 +111,7 @@ func TestWaitsForRetryAfterMillisecondsHeader(t *testing.T) {
 func TestWaitsForRetryAfterSecondsHeader(t *testing.T) {
 	server, _ := serverFailingThenOK(t, http.StatusTooManyRequests, 1,
 		map[string]string{"Retry-After": "1"})
-	client := NewClient(server.URL, "key", 2, 5*time.Second)
+	client := NewClient(testProvider, server.URL, "key", 2, 5*time.Second)
 
 	start := time.Now()
 	_, err := client.Decide(context.Background(), Request{})
@@ -126,7 +128,7 @@ func TestWaitsForRetryAfterSecondsHeader(t *testing.T) {
 func TestGivesUpAfterConfiguredRetries(t *testing.T) {
 	server, calls := serverFailingThenOK(t, http.StatusTooManyRequests, 99,
 		map[string]string{"retry-after-ms": "1"})
-	client := NewClient(server.URL, "key", 2, 5*time.Second)
+	client := NewClient(testProvider, server.URL, "key", 2, 5*time.Second)
 
 	_, err := client.Decide(context.Background(), Request{})
 
@@ -140,7 +142,7 @@ func TestGivesUpAfterConfiguredRetries(t *testing.T) {
 
 func TestStopsRetryingWhenContextIsCancelled(t *testing.T) {
 	server, _ := serverFailingThenOK(t, http.StatusTooManyRequests, 99, nil)
-	client := NewClient(server.URL, "key", 5, 5*time.Second)
+	client := NewClient(testProvider, server.URL, "key", 5, 5*time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()

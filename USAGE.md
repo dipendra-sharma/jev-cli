@@ -1,9 +1,10 @@
 # jev — usage guide
 
 Everything the tool does, with working examples. Every command and output below was
-run against the live OpenRouter endpoint.
+run against a live endpoint — the official TypeSafe API, OpenRouter, or both.
 
 - [Setup](#setup)
+- [Providers](#providers)
 - [How a request is shaped](#how-a-request-is-shaped)
 - [Giving it state](#giving-it-state)
 - [Commands](#commands)
@@ -27,8 +28,8 @@ run against the live OpenRouter endpoint.
 ## Setup
 
 ```bash
-go install ./cmd/jev
-export OPENROUTER_API_KEY="sk-or-v1-..."
+go install github.com/dipendra-sharma/jev-cli/cmd/jev@latest
+export TYPESAFE_API_KEY="..."   # or OPENROUTER_API_KEY, see Providers below
 jev models
 ```
 
@@ -36,6 +37,36 @@ jev models
 
 Put the export in `~/.zshrc` to make it permanent. Never paste the key into a command
 you will keep in shell history; use the environment variable.
+
+---
+
+## Providers
+
+The same model is reachable two ways, and this tool speaks both.
+
+| | `typesafe` | `openrouter` |
+| --- | --- | --- |
+| Endpoint | `https://api.typesafe.ai/v1/systemone` | `https://openrouter.ai/api/v1/systemone` |
+| Key from | `$TYPESAFE_API_KEY` | `$OPENROUTER_API_KEY` |
+| Get a key | [typesafe.ai](https://typesafe.ai) | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| Latest alias | `jev-latest` | `~typesafe/jev-latest` |
+| Pinned version | `jev-1.13.0` | `typesafe/jev-1.13` |
+| Reports cost and a request id | no | yes |
+
+With no `--provider`, the tool uses **typesafe** when `$TYPESAFE_API_KEY` is set,
+otherwise **openrouter** when `$OPENROUTER_API_KEY` is set. Name one explicitly to
+override:
+
+```bash
+jev noul --provider openrouter --state "..." --instructions "..."
+```
+
+Model ids differ between the two, so `--model` is only portable within one provider.
+Leave `--model` off and each provider gets its own latest alias.
+
+Answers are the same model either way. Pick OpenRouter if you already meter spend
+there or want the per-request cost in `--usage`; pick the official API for one less
+hop.
 
 ---
 
@@ -51,11 +82,12 @@ choose, a type, instructions, and the answers it is allowed to give. You can ask
 to as many questions as fit the context window, and they are all answered in one
 parallel pass — they do not see each other.
 
-The tool sends this to `POST https://openrouter.ai/api/v1/systemone`:
+The tool sends this to `POST /systemone` on whichever provider is selected —
+`https://api.typesafe.ai/v1` or `https://openrouter.ai/api/v1`:
 
 ```json
 {
-  "model": "~typesafe/jev-latest",
+  "model": "jev-latest",
   "state": "The export button charged my card twice.",
   "questions": {
     "department": {
@@ -70,7 +102,7 @@ The tool sends this to `POST https://openrouter.ai/api/v1/systemone`:
 }
 ```
 
-and gets back:
+and gets back (this one from OpenRouter, which adds `cost`, `id` and `provider`):
 
 ```json
 {
@@ -84,7 +116,7 @@ and gets back:
     }
   },
   "usage": { "input_tokens": 289, "output_tokens": 20, "cost": 0.00001214 },
-  "id": "gen-dec-1789998497-OriLizL9xrQowRKqz1Qx",
+  "id": "gen-dec-...",
   "provider": "TypeSafe"
 }
 ```
@@ -110,7 +142,7 @@ than flattening them into a sentence.
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `model` | string | yes | `~typesafe/jev-latest` or `typesafe/jev-1.13`; the tool sets it from `--model` |
+| `model` | string | yes | `jev-latest` or `jev-1.13.0` on the official API, `~typesafe/jev-latest` or `typesafe/jev-1.13` on OpenRouter; the tool sets it from `--model`, defaulting to the provider's latest alias |
 | `state` | JSON content | yes | the one thing being judged |
 | `questions` | map of name to Question | yes | names are yours; answers come back under the same names |
 
@@ -141,9 +173,9 @@ everything. On the command line that is `--option unclear=`.
 | `answers` | map of name to Answer | keyed by your question names |
 | `usage.input_tokens` | integer | |
 | `usage.output_tokens` | integer | billed at zero |
-| `usage.cost` | number | added by OpenRouter, in dollars |
-| `id` | string | added by OpenRouter; quote it in support requests |
-| `provider` | string | added by OpenRouter; always `TypeSafe` |
+| `usage.cost` | number | OpenRouter only, in dollars; the official API omits it |
+| `id` | string | OpenRouter only; quote it in support requests |
+| `provider` | string | OpenRouter only; always `TypeSafe` |
 
 ### Answer, by type
 
@@ -162,7 +194,7 @@ falls back to compact JSON for anything else.
 
 | | |
 | --- | --- |
-| Context | 32,000 tokens on OpenRouter |
+| Context | 64,000 tokens per request, of which 32,000 for `state` plus the longest question; OpenRouter advertises 32,000 |
 | Choice options | 255 maximum |
 | Score levels | 2 to 10 |
 | Input | $0.042 per million tokens |
@@ -440,25 +472,41 @@ have millions, split the file.
 
 ### `models`
 
-Lists the decision models OpenRouter currently serves. Decision models are hidden
-from the default model list, so this queries `?output_modalities=decisions` for you.
+Lists the decision models the selected provider currently serves.
 
 ```bash
-jev models
+jev models --provider typesafe
+```
+
+```
+jev-latest
+  The latest iteration of TypeSafe's System One Model: Jev
+  released 2026-09-10
+
+jev-preview
+  A preview version of `jev-latest`: should be better in most ways
+  released 2026-09-10
+```
+
+On OpenRouter, decision models are hidden from the default model list, so the tool
+queries `?output_modalities=decisions` for you:
+
+```bash
+jev models --provider openrouter
 ```
 
 ```
 ~typesafe/jev-latest
-  TypeSafe: Jev Latest · text->decisions · context 32000
-  input 0.000000042/token · output 0/token
+  TypeSafe: Jev Latest
+  context 32000 · input 0.000000042/token · output 0/token
 
 typesafe/jev-1.13
-  TypeSafe: Jev 1.13 · text->decisions · context 32000
-  input 0.000000042/token · output 0/token
+  TypeSafe: Jev 1.13
+  context 32000 · input 0.000000042/token · output 0/token
 ```
 
-Use `~typesafe/jev-latest` to always follow the newest release, or pin
-`typesafe/jev-1.13` if you want answers to stay stable as TypeSafe ships updates.
+Use the `-latest` alias to always follow the newest release, or pin the versioned id
+if you want answers to stay stable as TypeSafe ships updates.
 
 ---
 
@@ -466,9 +514,10 @@ Use `~typesafe/jev-latest` to always follow the newest release, or pin
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--model` | `~typesafe/jev-latest` | OpenRouter model slug |
-| `--api-key` | `$OPENROUTER_API_KEY` | credentials |
-| `--base-url` | `https://openrouter.ai/api/v1` | for a proxy or gateway |
+| `--provider` | whichever key is set, `typesafe` first | `typesafe` or `openrouter` |
+| `--model` | the provider's latest alias | model id |
+| `--api-key` | the provider's key variable | credentials |
+| `--base-url` | the provider's endpoint | for a proxy or gateway |
 | `--timeout` | `60s` | per-request timeout |
 | `--retries` | `3` | retries on 429, 529 and 5xx |
 | `--json` | off | print the raw JSON response instead of the table |
@@ -487,7 +536,7 @@ jev noul --state "I want a refund" --instructions "Is this a refund request?" --
 ```json
 {
   "answers": { "answer": { "noul": 0.99, "type": "noul" } },
-  "id": "gen-dec-1789998550-gByPkRmQbT67vjL4IgMp",
+  "id": "gen-dec-...",
   "model": "typesafe/jev-1.13-20260917",
   "provider": "TypeSafe",
   "usage": { "cost": 0.000011592, "input_tokens": 276, "output_tokens": 20 }
@@ -652,7 +701,7 @@ Errors are reported on stderr as a single line, prefixed `jev:`.
 | --- | --- | --- |
 | 400 / 422 | your request is malformed — a bad question type, a missing field | no |
 | 401 | the key is wrong or missing | no |
-| 402 | the OpenRouter account is out of credit | no |
+| 402 | the account is out of credit | no |
 | 403 | the key lacks permission | no |
 | 408 | the server timed out receiving the request | yes |
 | 429 | rate limited | yes |
@@ -674,8 +723,11 @@ negative retry count, a missing or unparseable spec file.
 ```
 jev: a score question needs between 2 and 10 levels, got 1
 jev: --gate-low (0.9) cannot exceed --gate-high (0.2)
-jev: unauthorized (401): User not found. — check OPENROUTER_API_KEY
+jev: unauthorized (401): User not found. — check TYPESAFE_API_KEY
 ```
+
+The 401 message names the key variable of the provider it actually called, so it
+tells you which of the two keys is wrong.
 
 ---
 
@@ -801,13 +853,17 @@ is not guaranteed truth.
 
 ## Troubleshooting
 
-**`no API key`** — set `OPENROUTER_API_KEY`, or pass `--api-key`.
+**`no API key for typesafe`** — set `TYPESAFE_API_KEY`, or set `OPENROUTER_API_KEY`
+and the tool will use OpenRouter, or pass `--api-key`.
+
+**`unknown provider "..."`** — `--provider` takes `typesafe` or `openrouter`.
 
 **`unauthorized (401)`** — the key is wrong, revoked, or from a different account.
-Check with `jev models`.
+The message names the variable to check. Verify with `jev models`.
 
 **`openrouter returned 400 ... Invalid discriminator value`** — a question in your
-spec has a `type` that is not `noul`, `choice` or `score`.
+spec has a `type` that is not `noul`, `choice` or `score`. The same failure on the
+official API reads `typesafe returned 400 ...`.
 
 **`spec ... has no "questions" field`** — the spec must be an object with a
 `questions` key; the question names inside it are yours to choose.

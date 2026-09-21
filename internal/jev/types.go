@@ -15,8 +15,6 @@ const (
 	MinScoreLevels   = 2
 	MaxScoreLevels   = 10
 
-	ModelLatest  = "~typesafe/jev-latest"
-	ModelPinned  = "typesafe/jev-1.13"
 	ContextLimit = 32000
 )
 
@@ -63,19 +61,15 @@ type Response struct {
 
 type Model struct {
 	ID            string `json:"id"`
-	Name          string `json:"name"`
-	ContextLength int    `json:"context_length"`
-	Pricing       struct {
-		Prompt     string `json:"prompt"`
-		Completion string `json:"completion"`
-	} `json:"pricing"`
-	Architecture struct {
-		Modality         string   `json:"modality"`
-		OutputModalities []string `json:"output_modalities"`
-	} `json:"architecture"`
+	Description   string `json:"description,omitempty"`
+	ReleaseDate   string `json:"release_date,omitempty"`
+	ContextLength int    `json:"context_length,omitempty"`
+	InputPrice    string `json:"input_price,omitempty"`
+	OutputPrice   string `json:"output_price,omitempty"`
 }
 
 type APIError struct {
+	Provider   Provider
 	StatusCode int
 	Message    string
 	RetryAfter time.Duration
@@ -84,9 +78,9 @@ type APIError struct {
 func (e *APIError) Error() string {
 	switch e.StatusCode {
 	case 401:
-		return fmt.Sprintf("unauthorized (401): %s — check OPENROUTER_API_KEY", e.Message)
+		return fmt.Sprintf("unauthorized (401): %s — check %s", e.Message, e.Provider.KeyEnv)
 	case 402:
-		return fmt.Sprintf("payment required (402): %s — the OpenRouter account is out of credit", e.Message)
+		return fmt.Sprintf("payment required (402): %s — the %s account is out of credit", e.Message, e.Provider.Name)
 	case 422:
 		return fmt.Sprintf("invalid request (422): %s", e.Message)
 	case 429:
@@ -94,7 +88,7 @@ func (e *APIError) Error() string {
 	case 529:
 		return fmt.Sprintf("provider overloaded (529): %s", e.Message)
 	default:
-		return fmt.Sprintf("openrouter returned %d: %s", e.StatusCode, e.Message)
+		return fmt.Sprintf("%s returned %d: %s", e.Provider.Name, e.StatusCode, e.Message)
 	}
 }
 

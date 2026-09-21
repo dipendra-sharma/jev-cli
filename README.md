@@ -1,6 +1,7 @@
 # jev
 
-A small command-line tool for the **TypeSafe Jev** decision model, served through **OpenRouter**.
+A small command-line tool for the **TypeSafe Jev** decision model, through the
+**official TypeSafe API** or **OpenRouter**.
 
 Jev does not write text. You hand it some state and a question with a fixed set of
 answers, and it hands back the chosen answer plus a probability for every option.
@@ -13,29 +14,35 @@ confidence number into a shell exit code so scripts can act on certainty.
 
 ## Install
 
-Needs Go 1.27 or newer, as declared in `go.mod` (built and tested on 1.27.1).
+Needs Go 1.26 or newer, as declared in `go.mod`.
+
+```bash
+go install github.com/dipendra-sharma/jev-cli/cmd/jev@latest
+```
+
+That puts a `jev` binary in `$(go env GOPATH)/bin`. To build from a clone instead:
 
 ```bash
 git clone https://github.com/dipendra-sharma/jev-cli.git
 cd jev-cli
-go install ./cmd/jev
-```
-
-That puts a `jev` binary in `$(go env GOPATH)/bin`. To build locally instead:
-
-```bash
 go build -o bin/jev ./cmd/jev
 ```
 
 ## Set up credentials
 
+Two providers serve the same model. Set the key for whichever you have:
+
 ```bash
-export OPENROUTER_API_KEY="sk-or-v1-..."
+export TYPESAFE_API_KEY="..."      # official API, api.typesafe.ai
+export OPENROUTER_API_KEY="..."    # or the same model through openrouter.ai
 ```
 
-Get a key from [openrouter.ai/keys](https://openrouter.ai/keys). You can also pass
-`--api-key` per command, though the environment variable keeps the key out of your
-shell history.
+Get a key from [typesafe.ai](https://typesafe.ai) or
+[openrouter.ai/keys](https://openrouter.ai/keys).
+
+With both set, the official API wins; `--provider openrouter` overrides it per
+command. You can also pass `--api-key`, though the environment variable keeps the key
+out of your shell history.
 
 Check it works:
 
@@ -107,14 +114,17 @@ and nothing to validate. The response shape is fixed by the question you asked.
 
 ### Numbers
 
-Verified live against OpenRouter on 21 September 2026:
+Verified live against both providers on 22 September 2026:
+
+| | Official API | OpenRouter |
+| --- | --- | --- |
+| Endpoint | `POST https://api.typesafe.ai/v1/systemone` | `POST https://openrouter.ai/api/v1/systemone` |
+| Model ids | `jev-latest`, `jev-1.13.0` | `~typesafe/jev-latest`, `typesafe/jev-1.13` |
+| Version served | `jev-1.13.0` | `typesafe/jev-1.13-20260917` |
 
 | | |
 | --- | --- |
-| Model slugs | `~typesafe/jev-latest`, `typesafe/jev-1.13` |
-| Version served | `typesafe/jev-1.13-20260917` |
-| Endpoint | `POST https://openrouter.ai/api/v1/systemone` |
-| Context | 32,000 tokens |
+| Context | 64,000 tokens per request, 32,000 for state plus the longest question |
 | Input price | $0.042 per million tokens |
 | Output price | free |
 | Typical latency | 70–500 ms |

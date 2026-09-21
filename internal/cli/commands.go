@@ -139,12 +139,11 @@ func runSpec(ctx context.Context, args []string, out io.Writer) (jev.Verdict, er
 		}
 		spec["state"] = state
 	}
-	spec["model"] = opts.model
-
 	client, err := opts.client()
 	if err != nil {
 		return jev.VerdictAccept, err
 	}
+	spec["model"] = opts.model
 	return send(ctx, client, &opts, spec, out)
 }
 
