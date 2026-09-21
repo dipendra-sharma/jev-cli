@@ -1,0 +1,13 @@
+{
+  "state": {"invoice_text": "Invoice INV-4471 dated 12 March 2026, total 240.00 USD"},
+  "questions": {
+    "field_match": {
+      "type": "noul",
+      "instructions": {
+        "field": {"name": "invoice_number", "type": "string", "description": "The identifier printed on the invoice."},
+        "extracted_value": "4471",
+        "question": "Does `extracted_value` match the `field`?"
+      }
+    }
+  }
+}

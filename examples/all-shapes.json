@@ -1,0 +1,39 @@
+{
+  "state": [
+    {"turn": "user", "text": "my card was charged twice for the same export"},
+    {"turn": "agent", "text": "I can look into that"},
+    {"turn": "user", "text": "just refund it, I am done with this"}
+  ],
+  "questions": {
+    "array_instructions": {
+      "type": "noul",
+      "instructions": ["Read the whole conversation.", "Does the customer ask for a refund?"]
+    },
+    "array_noul_criteria": {
+      "type": "noul",
+      "instructions": "Is the customer at risk of churning?",
+      "criteria": {
+        "true": ["Says they are leaving", "Says they are done", "Threatens to cancel"],
+        "false": ["Only reports a problem", "Still engaged and patient"]
+      }
+    },
+    "array_choice_criteria": {
+      "type": "choice",
+      "instructions": "Which team must fix the root cause",
+      "criteria": {
+        "billing": ["Charges, invoices, refunds", "Not for bugs that cause a wrong charge"],
+        "technical": ["Bugs and integration errors", "A button that charges twice"],
+        "unclear": null
+      }
+    },
+    "array_score_criteria": {
+      "type": "score",
+      "instructions": "How urgent is this",
+      "criteria": [
+        ["Can wait a week", "No money involved"],
+        ["Should be handled today", "Money involved but small"],
+        ["Handle immediately", "Customer is leaving"]
+      ]
+    }
+  }
+}

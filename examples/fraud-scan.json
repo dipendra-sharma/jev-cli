@@ -1,0 +1,21 @@
+{
+  "questions": {
+    "fraud": {
+      "type": "noul",
+      "instructions": "Is this signup likely a bot or fraudulent account?",
+      "criteria": {
+        "true": "Disposable domain, brand-new domain, or bulk signups with no real product usage",
+        "false": "A plausible human at a real company"
+      }
+    },
+    "value": {
+      "type": "choice",
+      "instructions": "What is the commercial value of this signup",
+      "criteria": {
+        "enterprise_lead": "Works at a large or well-known company",
+        "normal_user": "An ordinary individual developer or small team",
+        "no_value": "Fraudulent, throwaway, or abusive"
+      }
+    }
+  }
+}

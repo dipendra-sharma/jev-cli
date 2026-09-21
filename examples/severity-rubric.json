@@ -1,0 +1,13 @@
+{
+  "questions": {
+    "severity": {
+      "type": "score",
+      "instructions": "How severe is this bug report",
+      "criteria": [
+        {"what": "Cosmetic; no impact to functionality", "examples": ["a typo in a tooltip", "misaligned icon"]},
+        {"what": "Degraded; works but poorly", "examples": ["page loads in 9 seconds"]},
+        {"what": "Broken; core flow fails", "examples": ["checkout returns a 500", "cannot log in"]}
+      ]
+    }
+  }
+}

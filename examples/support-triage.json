@@ -1,0 +1,31 @@
+{
+  "questions": {
+    "department": {
+      "type": "choice",
+      "instructions": "Which team must fix the root cause of this ticket",
+      "criteria": {
+        "billing": { "what": "Charges, invoices, refunds, subscriptions", "not_for": "Bugs that cause a wrong charge" },
+        "technical": { "what": "Bugs, errors, integration problems", "examples": ["a button charges twice"] },
+        "sales": "Pricing, plans, or account expansion questions"
+      }
+    },
+    "frustration": {
+      "type": "score",
+      "instructions": "How frustrated the customer appears",
+      "criteria": [
+        "Calm, just stating facts",
+        "Frustrated but civil",
+        "Very angry, strong language or threats to leave"
+      ]
+    },
+    "refund_requested": {
+      "type": "noul",
+      "instructions": "Does the customer ask for money back?",
+      "criteria": { "true": "Explicitly asks for a refund or reversal", "false": "Reports a problem without asking for money back" }
+    },
+    "needs_human": {
+      "type": "noul",
+      "instructions": "Does this ticket need a human agent rather than an automated reply?"
+    }
+  }
+}
